@@ -1,0 +1,16 @@
+# Rust build output
+/target
+
+# Config local — use config.example.toml como modelo
+/config.toml
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

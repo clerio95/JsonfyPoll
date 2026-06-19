@@ -1,0 +1,15 @@
+# Arquivo relatorio.txt vigiado.
+input = "/home/clerio95/relatorio.txt"
+
+# Intervalo de verificação (segundos) no modo pooler.
+poll_interval_secs = 2
+
+# Pasta de destino por tipo de relatório. O JSON é gravado com nome fixo
+# (sobrescrevendo) dentro da pasta correspondente:
+#   posicao_estoque  -> posicao_estoque.json
+#   valor_estoque    -> valor_estoque.json
+#   produtividade    -> produtividade.json
+[destinos]
+posicao_estoque = "/home/clerio95/saidas/posicao"
+valor_estoque   = "/home/clerio95/saidas/valor"
+produtividade   = "/home/clerio95/saidas/produtividade"
