@@ -1,4 +1,4 @@
-# JsonfyPool
+# JsonfyPoll
 
 Vigia um arquivo `relatorio.txt` e o converte para JSON usando
 [jsonfylinx](../../Utils/jsonfylinx) (linkado como biblioteca C via FFI).
@@ -39,14 +39,14 @@ As pastas de destino são criadas automaticamente se não existirem.
 ## Uso
 
 ```
-jsonfypool [opções]
+jsonfypoll [opções]
 
   -c, --config <arquivo>   Caminho do config TOML (padrão: config.toml)
   -1, --once               Converte uma vez e sai (sem vigiar)
   -h, --help               Ajuda
 ```
 
-- **Modo pooler (padrão):** converte o arquivo atual ao iniciar e depois
+- **Modo poller (padrão):** converte o arquivo atual ao iniciar e depois
   reconverte a cada mudança (verifica o mtime a cada `poll_interval_secs`).
 - **Modo único (`--once`):** converte uma vez e sai — útil para cron/systemd.
 
@@ -84,24 +84,24 @@ O script baixa `jsonfylinx.c`/`.h` do GitHub, e:
   ajustar `src/ffi.rs` para casar com a nova ABI e rodar de novo.
 
 Como o link é estático, atualizar exige reconstruir o binário (o `update.sh` já
-faz isso); um `jsonfypool` já compilado carrega o jsonfylinx da época do build.
+faz isso); um `jsonfypoll` já compilado carrega o jsonfylinx da época do build.
 
 ## Instalar no Windows
 
-Com o `jsonfypool.exe` publicado num *release* do GitHub, instale pelo
+Com o `jsonfypoll.exe` publicado num *release* do GitHub, instale pelo
 PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/clerio95/JsonfyPool/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/clerio95/Jsonfypoll/main/install.ps1 | iex
 ```
 
-O `install.ps1` baixa o `.exe` para `%LOCALAPPDATA%\JsonfyPool`, gera um
+O `install.ps1` baixa o `.exe` para `%LOCALAPPDATA%\Jsonfypoll`, gera um
 `config.example.toml` com caminhos no estilo Windows e adiciona a pasta ao PATH
 do usuário. Opções:
 
 ```powershell
 # baixe o script e rode com parâmetros
-.\install.ps1 -Version v1.0.0 -InstallDir 'C:\Tools\JsonfyPool' -NoPath
+.\install.ps1 -Version v1.0.0 -InstallDir 'C:\Tools\Jsonfypoll' -NoPath
 ```
 
 ## Publicar (gerar e subir o .exe)
@@ -112,14 +112,14 @@ alvo `x86_64-pc-windows-gnu` e do `mingw-w64`):
 ```fish
 rustup target add x86_64-pc-windows-gnu   # uma vez
 cargo build --release --target x86_64-pc-windows-gnu
-# -> target/x86_64-pc-windows-gnu/release/jsonfypool.exe
+# -> target/x86_64-pc-windows-gnu/release/jsonfypoll.exe
 ```
 
-Depois crie um release no GitHub anexando esse `jsonfypool.exe` como asset (a
-URL `releases/latest/download/jsonfypool.exe` usada pelo instalador aponta
+Depois crie um release no GitHub anexando esse `jsonfypoll.exe` como asset (a
+URL `releases/latest/download/jsonfypoll.exe` usada pelo instalador aponta
 sempre para o release mais recente). Com o `gh` CLI:
 
 ```fish
-gh release create v1.0.0 target/x86_64-pc-windows-gnu/release/jsonfypool.exe \
+gh release create v1.0.0 target/x86_64-pc-windows-gnu/release/jsonfypoll.exe \
     --title v1.0.0 --notes "..."
 ```
