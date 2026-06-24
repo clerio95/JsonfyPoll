@@ -92,16 +92,16 @@ Com o `jsonfypoll.exe` publicado num *release* do GitHub, instale pelo
 PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/clerio95/Jsonfypoll/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/clerio95/JsonfyPoll/main/install.ps1 | iex
 ```
 
-O `install.ps1` baixa o `.exe` para `%LOCALAPPDATA%\Jsonfypoll`, gera um
+O `install.ps1` baixa o `.exe` para `%LOCALAPPDATA%\JsonfyPoll`, gera um
 `config.example.toml` com caminhos no estilo Windows e adiciona a pasta ao PATH
 do usuário. Opções:
 
 ```powershell
 # baixe o script e rode com parâmetros
-.\install.ps1 -Version v1.0.0 -InstallDir 'C:\Tools\Jsonfypoll' -NoPath
+.\install.ps1 -Version v1.0.0 -InstallDir 'C:\Tools\JsonfyPoll' -NoPath
 ```
 
 ## Publicar (gerar e subir o .exe)

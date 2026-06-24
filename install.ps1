@@ -1,18 +1,18 @@
 <#
 .SYNOPSIS
-    Instala o JsonfyPool no Windows: baixa o binário publicado no GitHub.
+    Instala o JsonfyPoll no Windows: baixa o binário publicado no GitHub.
 
 .DESCRIPTION
     Uso rápido (PowerShell):
 
-        irm https://raw.githubusercontent.com/clerio95/JsonfyPool/main/install.ps1 | iex
+        irm https://raw.githubusercontent.com/clerio95/JsonfyPoll/main/install.ps1 | iex
 
     Ou com opções (baixe o arquivo e rode):
 
-        .\install.ps1 -Version v1.0.0 -InstallDir 'C:\Tools\JsonfyPool'
+        .\install.ps1 -Version v1.0.0 -InstallDir 'C:\Tools\JsonfyPoll'
 
     Requisitos: o repositório precisa ter um *release* com o asset
-    `jsonfypool.exe` anexado. Veja a seção "Publicar" no README.
+    `jsonfypoll.exe` anexado. Veja a seção "Publicar" no README.
 
 .PARAMETER Repo
     Slug owner/repo no GitHub.
@@ -21,16 +21,16 @@
     Tag do release (ex.: v1.0.0) ou "latest".
 
 .PARAMETER InstallDir
-    Pasta de instalação. Padrão: %LOCALAPPDATA%\JsonfyPool.
+    Pasta de instalação. Padrão: %LOCALAPPDATA%\JsonfyPoll.
 
 .PARAMETER NoPath
     Não adicionar a pasta ao PATH do usuário.
 #>
 [CmdletBinding()]
 param(
-    [string]$Repo = 'clerio95/JsonfyPool',
+    [string]$Repo = 'clerio95/JsonfyPoll',
     [string]$Version = 'latest',
-    [string]$InstallDir = "$env:LOCALAPPDATA\JsonfyPool",
+    [string]$InstallDir = "$env:LOCALAPPDATA\JsonfyPoll",
     [switch]$NoPath
 )
 
@@ -38,22 +38,22 @@ $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 if ($Version -eq 'latest') {
-    $exeUrl = "https://github.com/$Repo/releases/latest/download/jsonfypool.exe"
+    $exeUrl = "https://github.com/$Repo/releases/latest/download/jsonfypoll.exe"
 }
 else {
-    $exeUrl = "https://github.com/$Repo/releases/download/$Version/jsonfypool.exe"
+    $exeUrl = "https://github.com/$Repo/releases/download/$Version/jsonfypoll.exe"
 }
 
-Write-Host "==> Instalando JsonfyPool em $InstallDir"
+Write-Host "==> Instalando JsonfyPoll em $InstallDir"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-$exePath = Join-Path $InstallDir 'jsonfypool.exe'
+$exePath = Join-Path $InstallDir 'jsonfypoll.exe'
 Write-Host "==> Baixando $exeUrl"
 try {
     Invoke-WebRequest -Uri $exeUrl -OutFile $exePath -UseBasicParsing
 }
 catch {
-    Write-Error "Falha ao baixar jsonfypool.exe. Confirme que o release '$Version' existe em https://github.com/$Repo/releases e tem o asset jsonfypool.exe.`n$($_.Exception.Message)"
+    Write-Error "Falha ao baixar jsonfypoll.exe. Confirme que o release '$Version' existe em https://github.com/$Repo/releases e tem o asset jsonfypoll.exe.`n$($_.Exception.Message)"
     return
 }
 
@@ -87,5 +87,5 @@ Write-Host ''
 Write-Host "Pronto! Instalado em: $exePath"
 Write-Host 'Proximos passos:'
 Write-Host "  1. Copie '$cfgExample' para config.toml e ajuste os caminhos."
-Write-Host '  2. Rode (vigiar):   jsonfypool -c C:\caminho\config.toml'
-Write-Host '     Ou (uma vez):    jsonfypool --once -c C:\caminho\config.toml'
+Write-Host '  2. Rode (vigiar):   jsonfypoll -c C:\caminho\config.toml'
+Write-Host '     Ou (uma vez):    jsonfypoll --once -c C:\caminho\config.toml'

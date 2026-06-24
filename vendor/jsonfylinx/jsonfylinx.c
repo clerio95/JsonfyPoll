@@ -264,6 +264,34 @@ static void write_totais_gerais(FILE *out,
     fputs("  }\n}\n", out);
 }
 
+/* Detects a "Grupo: <id> - <NOME>" header row (e.g. "|  Grupo: 1 - COMBUSTIVEL |")
+   and fills *gid / gnome with the group code and trimmed name. Returns 1 on a
+   group header, 0 for any other line. */
+static int parse_grupo_header(const char *line, long *gid, char *gnome, size_t gnome_sz) {
+    const char *p = strstr(line, "Grupo:");
+    if (!p) return 0;
+    p += 6; /* strlen("Grupo:") */
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (!isdigit((unsigned char)*p)) return 0;
+
+    char *end;
+    long id = strtol(p, &end, 10);
+    p = end;
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (*p == '-') p++;                                 /* skip the "N - NOME" dash */
+    while (*p && isspace((unsigned char)*p)) p++;
+
+    size_t j = 0;
+    while (*p && *p != '|' && j < gnome_sz - 1)         /* name up to the closing pipe */
+        gnome[j++] = *p++;
+    gnome[j] = '\0';
+    while (j > 0 && isspace((unsigned char)gnome[j-1])) /* trim trailing padding */
+        gnome[--j] = '\0';
+
+    *gid = id;
+    return 1;
+}
+
 static jfx_status_t parse_valor_estoque_reajustes(const char *in_path, const char *out_path) {
     FILE *in = fopen(in_path, "r");
     if (!in) return JFX_ERR_OPEN_INPUT;
@@ -276,6 +304,8 @@ static jfx_status_t parse_valor_estoque_reajustes(const char *in_path, const cha
     char line[MAX_LINE];
     ItemReajuste item;
     int first = 1;
+    long grupo_id = 0;                  /* current group, carried across rows */
+    char grupo_nome[MAX_PRODUTO] = "";
 
     fputs("[\n", out);
 
@@ -284,6 +314,9 @@ static jfx_status_t parse_valor_estoque_reajustes(const char *in_path, const cha
         while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
             line[--len] = '\0';
 
+        if (parse_grupo_header(line, &grupo_id, grupo_nome, sizeof(grupo_nome)))
+            continue;
+
         if (!parse_row_reajuste(line, &item)) continue;
 
         if (!first) fputs(",\n", out);
@@ -291,6 +324,11 @@ static jfx_status_t parse_valor_estoque_reajustes(const char *in_path, const cha
 
         fputs("  {\n", out);
         fprintf(out, "    \"id\": %d,\n", item.id);
+        fprintf(out, "    \"grupo_id\": %ld,\n", grupo_id);
+
+        fputs("    \"grupo_nome\": \"", out);
+        json_escape(out, grupo_nome);
+        fputs("\",\n", out);
 
         fputs("    \"produto\": \"", out);
         json_escape(out, item.produto);

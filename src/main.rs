@@ -1,4 +1,4 @@
-//! JsonfyPool — vigia um `relatorio.txt` e o converte para JSON via jsonfylinx.
+//! JsonfyPoll — vigia um `relatorio.txt` e o converte para JSON via jsonfylinx.
 //!
 //! O tipo de relatório é detectado automaticamente; a pasta de destino é
 //! escolhida pelo tipo e o JSON é gravado com nome fixo (sobrescrevendo).
@@ -17,7 +17,7 @@ use config::Config;
 use ffi::Parser;
 
 const USO: &str = "\
-Uso: jsonfypool [opções]
+Uso: jsonfypoll [opções]
 
   -c, --config <arquivo>   Caminho do config TOML (padrão: config.toml)
   -1, --once               Converte uma vez e sai (sem vigiar)

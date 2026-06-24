@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Atualiza a cópia vendorizada do jsonfylinx (vendor/jsonfylinx) a partir do
-# GitHub — branch main — e reconstrói o binário do JsonfyPool.
+# GitHub — branch main — e reconstrói o binário do JsonfyPoll.
 #
 # Se o build falhar (ex.: a ABI em jsonfylinx.h mudou e src/ffi.rs ficou
 # desatualizado), o vendor é revertido e o binário anterior é preservado.
@@ -51,7 +51,7 @@ done
 
 echo "==> Recompilando (cargo build --release)"
 if cargo build --release --manifest-path "$ROOT/Cargo.toml"; then
-    echo "==> Pronto. Binário atualizado: target/release/jsonfypool"
+    echo "==> Pronto. Binário atualizado: target/release/jsonfypoll"
 else
     echo "ERRO: build falhou — revertendo vendor/jsonfylinx." >&2
     echo "      (provável mudança de ABI: ajuste src/ffi.rs e rode de novo.)" >&2

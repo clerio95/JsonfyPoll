@@ -41,7 +41,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonfypool"
+name = "jsonfypoll"
 version = "0.1.0"
 dependencies = [
  "cc",
