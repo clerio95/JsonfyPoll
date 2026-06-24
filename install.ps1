@@ -37,23 +37,50 @@ param(
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-if ($Version -eq 'latest') {
-    $exeUrl = "https://github.com/$Repo/releases/latest/download/jsonfypoll.exe"
-}
-else {
-    $exeUrl = "https://github.com/$Repo/releases/download/$Version/jsonfypoll.exe"
-}
-
 Write-Host "==> Instalando JsonfyPoll em $InstallDir"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
 $exePath = Join-Path $InstallDir 'jsonfypoll.exe'
+
+# Resolve o asset .exe via API de releases, em vez de fixar o nome exato.
+# Assim um nome ligeiramente diferente (ex.: erro de digitacao) ainda funciona.
+if ($Version -eq 'latest') {
+    $apiUrl = "https://api.github.com/repos/$Repo/releases/latest"
+}
+else {
+    $apiUrl = "https://api.github.com/repos/$Repo/releases/tags/$Version"
+}
+
+$exeUrl = $null
+try {
+    $headers = @{ 'User-Agent' = 'JsonfyPoll-installer'; 'Accept' = 'application/vnd.github+json' }
+    $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers -UseBasicParsing
+    # Prefere o nome canonico; senao, qualquer asset .exe do release.
+    $asset = $release.assets | Where-Object { $_.name -eq 'jsonfypoll.exe' } | Select-Object -First 1
+    if (-not $asset) {
+        $asset = $release.assets | Where-Object { $_.name -like '*.exe' } | Select-Object -First 1
+    }
+    if ($asset) { $exeUrl = $asset.browser_download_url }
+}
+catch {
+    # Cai no fallback de URL direta abaixo.
+}
+
+if (-not $exeUrl) {
+    if ($Version -eq 'latest') {
+        $exeUrl = "https://github.com/$Repo/releases/latest/download/jsonfypoll.exe"
+    }
+    else {
+        $exeUrl = "https://github.com/$Repo/releases/download/$Version/jsonfypoll.exe"
+    }
+}
+
 Write-Host "==> Baixando $exeUrl"
 try {
     Invoke-WebRequest -Uri $exeUrl -OutFile $exePath -UseBasicParsing
 }
 catch {
-    Write-Error "Falha ao baixar jsonfypoll.exe. Confirme que o release '$Version' existe em https://github.com/$Repo/releases e tem o asset jsonfypoll.exe.`n$($_.Exception.Message)"
+    Write-Error "Falha ao baixar jsonfypoll.exe. Confirme que o release '$Version' existe em https://github.com/$Repo/releases e tem um asset .exe.`n$($_.Exception.Message)"
     return
 }
 
