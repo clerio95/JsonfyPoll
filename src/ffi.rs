@@ -16,6 +16,7 @@ pub enum Parser {
     PosicaoEstoque = 1,
     ValorEstoque = 2,
     Produtividade = 3,
+    Movimentacao = 4,
 }
 
 impl Parser {
@@ -24,6 +25,7 @@ impl Parser {
             1 => Parser::PosicaoEstoque,
             2 => Parser::ValorEstoque,
             3 => Parser::Produtividade,
+            4 => Parser::Movimentacao,
             _ => Parser::Auto,
         }
     }
@@ -34,6 +36,7 @@ impl Parser {
             Parser::PosicaoEstoque => "Posição de Estoque",
             Parser::ValorEstoque => "Valor do Estoque",
             Parser::Produtividade => "Produtividade por Funcionários",
+            Parser::Movimentacao => "Movimentação de Produtos",
             Parser::Auto => "desconhecido",
         }
     }
@@ -42,6 +45,7 @@ impl Parser {
 extern "C" {
     fn jfx_detect(in_path: *const c_char) -> c_int;
     fn jfx_convert(in_path: *const c_char, out_path: *const c_char, parser: c_int) -> c_int;
+    fn jfx_periodo_ym(in_path: *const c_char, buf: *mut c_char, buf_sz: usize) -> c_int;
     fn jfx_status_str(status: c_int) -> *const c_char;
 }
 
@@ -70,6 +74,24 @@ pub fn detect(in_path: &Path) -> Result<Parser, String> {
     // SAFETY: c_in é um ponteiro válido terminado em nulo, vivo durante a chamada.
     let code = unsafe { jfx_detect(c_in.as_ptr()) };
     Ok(Parser::from_int(code))
+}
+
+/// Extrai o ano-mês do período do relatório no formato "AAAA-MM" (ex.: "2018-03"),
+/// usado para nomear o arquivo de saída da Movimentação de Produtos.
+/// Retorna `None` quando o período não pôde ser lido.
+pub fn periodo_ym(in_path: &Path) -> Result<Option<String>, String> {
+    let c_in = cstring(in_path)?;
+    let mut buf = [0_u8; 8]; // "AAAA-MM" + '\0'
+                             // SAFETY: c_in é válido durante a chamada; buf tem espaço para 8 bytes e a
+                             // função C grava no máximo 8 (incluindo o terminador nulo).
+    let ok = unsafe { jfx_periodo_ym(c_in.as_ptr(), buf.as_mut_ptr() as *mut c_char, buf.len()) };
+    if ok == 0 {
+        return Ok(None);
+    }
+    let end = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+    let s = std::str::from_utf8(&buf[..end])
+        .map_err(|_| "período retornou bytes inválidos".to_string())?;
+    Ok(Some(s.to_owned()))
 }
 
 /// Converte `in_path` para JSON em `out_path` usando `parser`.

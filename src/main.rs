@@ -68,9 +68,16 @@ fn processar(cfg: &Config) -> Result<(), String> {
         return Err("não foi possível identificar o tipo do relatório".to_string());
     }
 
-    let out = cfg
-        .destino(parser)
-        .ok_or_else(|| "tipo de relatório sem destino configurado".to_string())?;
+    // Movimentação de Produtos usa nome dinâmico "AAAA-MM.json", derivado do
+    // período do relatório; os demais tipos têm nome fixo.
+    let out = if parser == Parser::Movimentacao {
+        let ym = ffi::periodo_ym(&cfg.input)?
+            .ok_or_else(|| "não foi possível ler o período (AAAA-MM) do relatório".to_string())?;
+        cfg.destino_movimentacao(&ym)
+    } else {
+        cfg.destino(parser)
+            .ok_or_else(|| "tipo de relatório sem destino configurado".to_string())?
+    };
 
     if let Some(dir) = out.parent() {
         std::fs::create_dir_all(dir)

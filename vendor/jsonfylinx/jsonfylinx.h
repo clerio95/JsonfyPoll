@@ -1,6 +1,8 @@
 #ifndef JSONFYLINX_H
 #define JSONFYLINX_H
 
+#include <stddef.h>  /* size_t */
+
 /*
  * jsonfylinx — biblioteca de conversão de relatórios TXT (ERP) para JSON.
  *
@@ -15,10 +17,11 @@ extern "C" {
 
 /* Qual parser aplicar. JFX_AUTO pede detecção pelo conteúdo do arquivo. */
 typedef enum {
-    JFX_AUTO            = 0,
-    JFX_POSICAO_ESTOQUE = 1,
-    JFX_VALOR_ESTOQUE   = 2,
-    JFX_PRODUTIVIDADE   = 3
+    JFX_AUTO                 = 0,
+    JFX_POSICAO_ESTOQUE      = 1,
+    JFX_VALOR_ESTOQUE        = 2,
+    JFX_PRODUTIVIDADE        = 3,
+    JFX_MOVIMENTACAO_PRODUTOS = 4
 } jfx_parser_t;
 
 /* Resultado de uma conversão. */
@@ -45,6 +48,14 @@ jfx_parser_t jfx_detect(const char *in_path);
 jfx_status_t jfx_convert(const char *in_path,
                          const char *out_path,
                          jfx_parser_t parser);
+
+/*
+ * Extrai o ano-mês do período do relatório (linha "Período: DD/MM/AAAA ...")
+ * e grava em `buf` no formato "AAAA-MM" (ex.: "2018-03"). `buf_sz` deve ser
+ * >= 8. Útil para o chamador nomear o arquivo de saída (ex.: 2018-03.json).
+ * Retorna 1 em caso de sucesso, 0 se não encontrar/interpretar o período.
+ */
+int jfx_periodo_ym(const char *in_path, char *buf, size_t buf_sz);
 
 /* Mensagem legível (pt-BR) para um jfx_status_t. */
 const char *jfx_status_str(jfx_status_t status);

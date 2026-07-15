@@ -9,6 +9,7 @@
 #define MAX_LINE           1024
 #define MAX_PRODUTO        512
 #define MAX_PRODS_PER_FUNC 64
+#define MAX_MOV_PRODUTOS   512
 #define DETECT_MAX_LINES   50
 
 typedef struct {
@@ -34,6 +35,12 @@ typedef struct {
     double valor;
     double participacao_pct;
 } ProdutoVenda;
+
+typedef struct {
+    long   codigo;
+    char   nome[MAX_PRODUTO];
+    double total_entrada;   /* soma da coluna Entrada ao longo do mês (todos os depósitos) */
+} MovProduto;
 
 static void trim(char *s) {
     char *p = s + strlen(s) - 1;
@@ -289,6 +296,37 @@ static int parse_grupo_header(const char *line, long *gid, char *gnome, size_t g
         gnome[--j] = '\0';
 
     *gid = id;
+    return 1;
+}
+
+/* Parses a "| <label> <codigo> - <NOME> ... |" header line (e.g.
+   "| Produto.: 562 - GASOLINA C COMUM |" or "| Empresa: 1 - ZAM ... |").
+   Search starts at `label`; the name runs from after " - " up to the last '|'
+   on the line (or end of line). Fills *codigo and the trimmed *nome. Returns 1
+   when both a numeric code and a name were extracted, 0 otherwise. */
+static int parse_codigo_nome(const char *line, const char *label,
+                             long *codigo, char *nome, size_t nome_sz) {
+    const char *p = strstr(line, label);
+    if (!p) return 0;
+    const char *colon = strchr(p, ':');
+    if (!colon) return 0;
+    p = colon + 1;
+    while (*p == ' ') p++;
+    if (!isdigit((unsigned char)*p)) return 0;   /* skips lines with no code */
+    *codigo = atol(p);
+
+    const char *dp = strstr(p, " - ");
+    if (!dp) return 0;
+    dp += 3;
+
+    const char *end = strrchr(line, '|');
+    if (!end || end <= dp) end = line + strlen(line);
+    int nlen = (int)(end - dp);
+    while (nlen > 0 && isspace((unsigned char)dp[nlen-1])) nlen--;
+    if (nlen <= 0 || (size_t)nlen >= nome_sz) return 0;
+
+    memcpy(nome, dp, nlen);
+    nome[nlen] = '\0';
     return 1;
 }
 
@@ -585,6 +623,125 @@ static jfx_status_t parse_produtividade_funcionarios(const char *in_path, const 
     return JFX_OK;
 }
 
+static jfx_status_t parse_movimentacao_produtos(const char *in_path, const char *out_path) {
+    FILE *in = fopen(in_path, "r");
+    if (!in) return JFX_ERR_OPEN_INPUT;
+    FILE *out = fopen(out_path, "w");
+    if (!out) {
+        fclose(in);
+        return JFX_ERR_CREATE_OUTPUT;
+    }
+
+    char periodo_inicio[16]        = {0};
+    char periodo_fim[16]           = {0};
+    long empresa_codigo            = 0;
+    char empresa_nome[MAX_PRODUTO] = {0};
+
+    MovProduto prods[MAX_MOV_PRODUTOS];
+    int  nprods    = 0;
+
+    /* current product block being read (set on "Produto.:", summed on total) */
+    long cur_codigo            = 0;
+    char cur_nome[MAX_PRODUTO] = {0};
+    int  have_cur              = 0;
+
+    char line[MAX_LINE];
+
+    while (fgets(line, sizeof(line), in)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
+            line[--len] = '\0';
+
+        /* Período: "odo: " avoids matching the UTF-8 accented "í". */
+        if (!periodo_inicio[0]) {
+            char *pp = strstr(line, "odo: ");
+            if (pp) {
+                pp += 5;
+                strncpy(periodo_inicio, pp, 10);
+                periodo_inicio[10] = '\0';
+                if (strlen(pp) >= 23) {
+                    strncpy(periodo_fim, pp + 13, 10);
+                    periodo_fim[10] = '\0';
+                }
+                continue;
+            }
+        }
+
+        /* Empresa: the boxed "| Empresa: N - NAME |" row (the header line above
+           it has no code, so parse_codigo_nome rejects it). */
+        if (!empresa_nome[0] &&
+            parse_codigo_nome(line, "Empresa:", &empresa_codigo, empresa_nome, sizeof(empresa_nome)))
+            continue;
+
+        /* Product block header: "| Produto.: N - NAME |" */
+        {
+            long c;
+            char n[MAX_PRODUTO];
+            if (parse_codigo_nome(line, "Produto.:", &c, n, sizeof(n))) {
+                cur_codigo = c;
+                snprintf(cur_nome, sizeof(cur_nome), "%s", n);
+                have_cur = 1;
+                continue;
+            }
+        }
+
+        /* "| Total no período ... |" closes a product block: field 2 (0-based)
+           is the Entrada total for that product+deposit. Aggregate by code. */
+        if (have_cur && strstr(line, "Total no per")) {
+            char f[8][MAX_PRODUTO];
+            if (split_pipes(line, f, 8) >= 3) {
+                double entrada = parse_br_number(f[2]);
+
+                int idx = -1;
+                for (int i = 0; i < nprods; i++)
+                    if (prods[i].codigo == cur_codigo) { idx = i; break; }
+                if (idx < 0 && nprods < MAX_MOV_PRODUTOS) {
+                    idx = nprods++;
+                    prods[idx].codigo = cur_codigo;
+                    snprintf(prods[idx].nome, sizeof(prods[idx].nome), "%s", cur_nome);
+                    prods[idx].total_entrada = 0.0;
+                }
+                if (idx >= 0) prods[idx].total_entrada += entrada;
+            }
+            have_cur = 0;
+            continue;
+        }
+    }
+
+    fputs("{\n", out);
+    fputs("  \"periodo\": {\n", out);
+    fprintf(out, "    \"inicio\": \"%s\",\n", periodo_inicio);
+    fprintf(out, "    \"fim\": \"%s\"\n", periodo_fim);
+    fputs("  },\n", out);
+    fputs("  \"empresa\": {\n", out);
+    fprintf(out, "    \"codigo\": %ld,\n", empresa_codigo);
+    fputs("    \"nome\": \"", out);
+    json_escape(out, empresa_nome);
+    fputs("\"\n", out);
+    fputs("  },\n", out);
+    fputs("  \"produtos\": [\n", out);
+
+    int first = 1;
+    for (int i = 0; i < nprods; i++) {
+        if (prods[i].total_entrada <= 0.0) continue;   /* only products that entered stock */
+        if (!first) fputs(",\n", out);
+        first = 0;
+        fputs("    {\n", out);
+        fprintf(out, "      \"codigo\": %ld,\n", prods[i].codigo);
+        fputs("      \"nome\": \"", out);
+        json_escape(out, prods[i].nome);
+        fputs("\",\n", out);
+        fprintf(out, "      \"total_entrada\": %.3f\n", prods[i].total_entrada);
+        fputs("    }", out);
+    }
+    if (!first) fputc('\n', out);
+    fputs("  ]\n}\n", out);
+
+    fclose(in);
+    fclose(out);
+    return JFX_OK;
+}
+
 jfx_parser_t jfx_detect(const char *in_path) {
     FILE *in = fopen(in_path, "r");
     if (!in) return JFX_AUTO;
@@ -599,7 +756,9 @@ jfx_parser_t jfx_detect(const char *in_path) {
         scanned++;
 
         /* Accent-free anchors, matched case-insensitively. Order matters:
-         * both stock reports contain "ESTOQUE", so "VALOR DO ESTOQUE" first. */
+         * both stock reports contain "ESTOQUE", so "VALOR DO ESTOQUE" first.
+         * "MOVIMENTA" stops before the "Ç" of "MOVIMENTAÇÃO DE PRODUTOS". */
+        if (ci_contains(line, "MOVIMENTA")) { result = JFX_MOVIMENTACAO_PRODUTOS; break; }
         if (ci_contains(line, "PRODUTIVIDADE")) { result = JFX_PRODUTIVIDADE; break; }
         if (ci_contains(line, "VALOR DO ESTOQUE")) { result = JFX_VALOR_ESTOQUE; break; }
         if (ci_contains(line, "ESTOQUE")) { result = JFX_POSICAO_ESTOQUE; break; }
@@ -607,6 +766,39 @@ jfx_parser_t jfx_detect(const char *in_path) {
 
     fclose(in);
     return result;
+}
+
+int jfx_periodo_ym(const char *in_path, char *buf, size_t buf_sz) {
+    if (!buf || buf_sz < 8) return 0;
+
+    FILE *in = fopen(in_path, "r");
+    if (!in) return 0;
+
+    char line[MAX_LINE];
+    int  scanned = 0, ok = 0;
+
+    while (fgets(line, sizeof(line), in) && scanned < DETECT_MAX_LINES) {
+        if (line[0] == '+' || line[0] == '|') break;   /* past the header */
+        scanned++;
+
+        char *pp = strstr(line, "odo: ");               /* "Período: DD/MM/AAAA ..." */
+        if (pp) {
+            pp += 5;
+            /* Expect DD/MM/AAAA; build "AAAA-MM". */
+            if (strlen(pp) >= 10 && isdigit((unsigned char)pp[0]) &&
+                pp[2] == '/' && pp[5] == '/') {
+                buf[0] = pp[6]; buf[1] = pp[7]; buf[2] = pp[8]; buf[3] = pp[9];
+                buf[4] = '-';
+                buf[5] = pp[3]; buf[6] = pp[4];
+                buf[7] = '\0';
+                ok = 1;
+            }
+            break;
+        }
+    }
+
+    fclose(in);
+    return ok;
 }
 
 jfx_status_t jfx_convert(const char *in_path, const char *out_path, jfx_parser_t parser) {
@@ -620,10 +812,11 @@ jfx_status_t jfx_convert(const char *in_path, const char *out_path, jfx_parser_t
     }
 
     switch (parser) {
-        case JFX_POSICAO_ESTOQUE: return parse_posicao_estoque(in_path, out_path);
-        case JFX_VALOR_ESTOQUE:   return parse_valor_estoque_reajustes(in_path, out_path);
-        case JFX_PRODUTIVIDADE:   return parse_produtividade_funcionarios(in_path, out_path);
-        default:                  return JFX_ERR_INVALID_PARSER;
+        case JFX_POSICAO_ESTOQUE:       return parse_posicao_estoque(in_path, out_path);
+        case JFX_VALOR_ESTOQUE:         return parse_valor_estoque_reajustes(in_path, out_path);
+        case JFX_PRODUTIVIDADE:         return parse_produtividade_funcionarios(in_path, out_path);
+        case JFX_MOVIMENTACAO_PRODUTOS: return parse_movimentacao_produtos(in_path, out_path);
+        default:                        return JFX_ERR_INVALID_PARSER;
     }
 }
 

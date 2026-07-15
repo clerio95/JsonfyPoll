@@ -11,6 +11,7 @@ pub struct Destinos {
     pub posicao_estoque: PathBuf,
     pub valor_estoque: PathBuf,
     pub produtividade: PathBuf,
+    pub movimentacao: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,15 +37,22 @@ impl Config {
         toml::from_str(&texto).map_err(|e| format!("config inválida '{}': {e}", path.display()))
     }
 
-    /// Pasta de destino e nome de arquivo fixo para um tipo de relatório.
-    /// `Parser::Auto` não tem destino.
+    /// Pasta de destino e nome de arquivo fixo para os tipos de nome fixo.
+    /// `Parser::Movimentacao` usa nome dinâmico (ver `destino_movimentacao`);
+    /// `Parser::Auto` não tem destino. Ambos retornam `None` aqui.
     pub fn destino(&self, parser: Parser) -> Option<PathBuf> {
         let (dir, nome) = match parser {
             Parser::PosicaoEstoque => (&self.destinos.posicao_estoque, "posicao_estoque.json"),
             Parser::ValorEstoque => (&self.destinos.valor_estoque, "valor_estoque.json"),
             Parser::Produtividade => (&self.destinos.produtividade, "produtividade.json"),
-            Parser::Auto => return None,
+            Parser::Movimentacao | Parser::Auto => return None,
         };
         Some(dir.join(nome))
+    }
+
+    /// Destino da Movimentação de Produtos: nome dinâmico "AAAA-MM.json"
+    /// (ex.: 2018-03.json) dentro da pasta configurada.
+    pub fn destino_movimentacao(&self, ym: &str) -> PathBuf {
+        self.destinos.movimentacao.join(format!("{ym}.json"))
     }
 }

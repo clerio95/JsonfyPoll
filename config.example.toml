@@ -9,7 +9,11 @@ poll_interval_secs = 2
 #   posicao_estoque  -> posicao_estoque.json
 #   valor_estoque    -> valor_estoque.json
 #   produtividade    -> produtividade.json
+# Exceção: movimentacao usa nome dinâmico com o ano-mês do período do
+# relatório, sem sobrescrever meses diferentes:
+#   movimentacao     -> AAAA-MM.json (ex.: 2018-03.json)
 [destinos]
 posicao_estoque = "/home/clerio95/saidas/posicao"
 valor_estoque   = "/home/clerio95/saidas/valor"
 produtividade   = "/home/clerio95/saidas/produtividade"
+movimentacao    = "/home/clerio95/saidas/movimentacao"

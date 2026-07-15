@@ -12,13 +12,17 @@ grava o JSON com nome fixo (sobrescrevendo).
 - **Detecção:** automática, feita pelo próprio jsonfylinx (`jfx_detect`).
 - **Destino:** uma pasta por tipo de relatório (configurável):
 
-  | Tipo                          | Arquivo gerado          |
-  |-------------------------------|-------------------------|
-  | Posição de Estoque            | `posicao_estoque.json`  |
-  | Valor do Estoque              | `valor_estoque.json`    |
-  | Produtividade por Funcionários | `produtividade.json`    |
+  | Tipo                          | Arquivo gerado            |
+  |-------------------------------|---------------------------|
+  | Posição de Estoque            | `posicao_estoque.json`    |
+  | Valor do Estoque              | `valor_estoque.json`      |
+  | Produtividade por Funcionários | `produtividade.json`      |
+  | Movimentação de Produtos      | `AAAA-MM.json` (ex.: `2018-03.json`) |
 
-  O nome é fixo: cada conversão **sobrescreve** o JSON anterior daquele tipo.
+  Para os três primeiros o nome é fixo: cada conversão **sobrescreve** o JSON
+  anterior daquele tipo. A **Movimentação de Produtos** usa o ano-mês do período
+  do relatório como nome, então meses diferentes geram arquivos distintos
+  (só o mesmo mês é sobrescrito).
 
 ## Configuração
 
@@ -32,6 +36,7 @@ poll_interval_secs = 2
 posicao_estoque = "/home/clerio95/saidas/posicao"
 valor_estoque   = "/home/clerio95/saidas/valor"
 produtividade   = "/home/clerio95/saidas/produtividade"
+movimentacao    = "/home/clerio95/saidas/movimentacao"
 ```
 
 As pastas de destino são criadas automaticamente se não existirem.
