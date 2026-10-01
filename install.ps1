@@ -101,7 +101,7 @@ valor_estoque   = 'C:\saidas\valor'
 produtividade   = 'C:\saidas\produtividade'
 # Nome dinamico: AAAA-MM.json
 movimentacao    = 'C:\saidas\movimentacao'
-# Opcional. Nome por produto e periodo: CODIGO_AAAA-MM-DD_AAAA-MM-DD.json
+# Opcional. Um arquivo por produto, pelo grau do oleo: 5w30.json, 15w40.json
 venda_detalhada = 'C:\saidas\venda_detalhada'
 "@ | Set-Content -Path $cfgExample -Encoding UTF8
 

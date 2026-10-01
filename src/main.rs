@@ -69,7 +69,7 @@ fn processar(cfg: &Config) -> Result<(), String> {
     }
 
     // Movimentação de Produtos usa nome dinâmico "AAAA-MM.json", derivado do
-    // período do relatório, e a Venda Detalhada um nome por produto e período;
+    // período do relatório, e a Venda Detalhada um nome por produto (5w30.json);
     // os demais tipos têm nome fixo.
     let out = match parser {
         Parser::Movimentacao => {
@@ -204,21 +204,51 @@ mod tests {
         assert_eq!(ffi::detect(input).unwrap(), Parser::VendaDetalhada);
         assert_eq!(
             ffi::venda_chave(input).unwrap().as_deref(),
-            Some("1096_2026-09-01_2026-09-30")
+            Some("5w30")
         );
     }
 
     #[test]
-    fn grava_um_arquivo_por_produto_e_periodo() {
+    fn grava_um_arquivo_por_produto_com_o_grau_no_nome() {
         let saida = tmp("grava");
         processar(&config(Path::new(VENDA), &saida, true)).unwrap();
 
-        let json = std::fs::read_to_string(saida.join("venda/1096_2026-09-01_2026-09-30.json"))
-            .unwrap();
+        let json = std::fs::read_to_string(saida.join("venda/5w30.json")).unwrap();
         assert!(json.contains("\"codigo\": 1096"));
         assert!(json.contains("\"gerado_em\": \"2026-10-01T14:51\""));
         assert!(json.contains("\"total_quantidade\": 23.200"));
         assert_eq!(json.matches("\"documento\"").count(), 8);
+    }
+
+    #[test]
+    fn produto_sem_grau_no_nome_usa_o_codigo() {
+        let saida = tmp("semgrau");
+        let input = saida.join("relatorio.txt");
+        let texto = std::fs::read_to_string(VENDA).unwrap();
+        std::fs::write(
+            &input,
+            texto.replace("PETRONAS SELENIA PERFORM SP 5W30 GRANEL", "ARLA 32 GRANEL"),
+        )
+        .unwrap();
+
+        processar(&config(&input, &saida, true)).unwrap();
+        assert!(saida.join("venda/1096.json").is_file());
+    }
+
+    #[test]
+    fn grau_com_hifen_e_numero_parecido_nao_confundem() {
+        let saida = tmp("hifen");
+        let input = saida.join("relatorio.txt");
+        let texto = std::fs::read_to_string(VENDA).unwrap();
+        std::fs::write(
+            &input,
+            texto.replace(
+                "PETRONAS SELENIA PERFORM SP 5W30 GRANEL",
+                "SYNTIUM 800 SL(1X200) SAE 15W-40",
+            ),
+        )
+        .unwrap();
+        assert_eq!(ffi::venda_chave(&input).unwrap().as_deref(), Some("15w40"));
     }
 
     #[test]

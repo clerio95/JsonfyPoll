@@ -98,12 +98,12 @@ pub fn periodo_ym(in_path: &Path) -> Result<Option<String>, String> {
     Ok(Some(s.to_owned()))
 }
 
-/// Chave da Venda Detalhada, "CODIGO_AAAA-MM-DD_AAAA-MM-DD" (produto e
-/// período), usada para nomear o arquivo de saída. Retorna `None` quando o
-/// relatório não tem filtro de produto ou período.
+/// Chave da Venda Detalhada, usada para nomear o arquivo de saída: o grau de
+/// viscosidade do nome do produto ("5w30") ou, sem grau, o código ("1096").
+/// Retorna `None` quando o relatório não tem filtro de produto ou período.
 pub fn venda_chave(in_path: &Path) -> Result<Option<String>, String> {
     let c_in = cstring(in_path)?;
-    let mut buf = [0_u8; 64]; // a função C exige >= 48
+    let mut buf = [0_u8; 64]; // a função C exige >= 24
                               // SAFETY: c_in é válido durante a chamada; a função C grava no máximo
                               // buf.len() bytes, incluindo o terminador nulo.
     let ok = unsafe { jfx_venda_chave(c_in.as_ptr(), buf.as_mut_ptr() as *mut c_char, buf.len()) };

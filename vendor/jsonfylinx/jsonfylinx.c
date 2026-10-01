@@ -997,14 +997,43 @@ static jfx_status_t parse_venda_detalhada(const char *in_path, const char *out_p
     return JFX_OK;
 }
 
+/* Viscosity grade in a product name ("... SP 5W30 GRANEL", "SAE 15W-40") as
+   "5w30" / "15w40" in out. Only a whole token counts: 1-2 digits, W, an
+   optional '-', 2 digits. Returns 1 when found. */
+static int grau_viscosidade(const char *nome, char *out, size_t out_sz) {
+    size_t n = strlen(nome);
+    for (size_t i = 0; i < n; i++) {
+        if (i > 0 && isalnum((unsigned char)nome[i-1])) continue;   /* token start */
+        size_t j = i, d1 = 0;
+        while (j < n && isdigit((unsigned char)nome[j]) && d1 < 2) { j++; d1++; }
+        if (d1 == 0 || j >= n || toupper((unsigned char)nome[j]) != 'W') continue;
+        j++;
+        if (j < n && nome[j] == '-') j++;
+        size_t k = j, d2 = 0;
+        while (k < n && isdigit((unsigned char)nome[k]) && d2 < 2) { k++; d2++; }
+        if (d2 != 2) continue;
+        if (k < n && isalnum((unsigned char)nome[k])) continue;     /* token end */
+        if (d1 + 1 + d2 + 1 > out_sz) return 0;
+        memcpy(out, nome + i, d1);
+        out[d1] = 'w';
+        memcpy(out + d1 + 1, nome + j, d2);
+        out[d1 + 1 + d2] = '\0';
+        return 1;
+    }
+    return 0;
+}
+
 int jfx_venda_chave(const char *in_path, char *buf, size_t buf_sz) {
-    if (!buf || buf_sz < 48) return 0;
+    if (!buf || buf_sz < 24) return 0;
 
     VendaHeader h;
     if (!read_venda_header(in_path, &h)) return 0;
     if (h.codigo <= 0 || !h.inicio[0] || !h.fim[0]) return 0;
 
-    snprintf(buf, buf_sz, "%ld_%s_%s", h.codigo, h.inicio, h.fim);
+    /* The grade names the file the way people call the oil; a product
+       without one (not an engine oil) falls back to its ERP code. */
+    if (!grau_viscosidade(h.nome, buf, buf_sz))
+        snprintf(buf, buf_sz, "%ld", h.codigo);
     return 1;
 }
 

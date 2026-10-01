@@ -62,9 +62,9 @@ impl Config {
         self.destinos.movimentacao.join(format!("{ym}.json"))
     }
 
-    /// Destino da Venda Detalhada: "CODIGO_AAAA-MM-DD_AAAA-MM-DD.json" (produto e
-    /// período). Um arquivo por produto e período: exportar o 5W30 não apaga o
-    /// 15W40, e reexportar o mesmo período o substitui. `None` sem a pasta.
+    /// Destino da Venda Detalhada: "<chave>.json" (ex.: 5w30.json). Um arquivo
+    /// por produto: exportar o 5W30 não apaga o 15W40, e a exportação seguinte
+    /// do mesmo produto substitui a anterior. `None` sem a pasta.
     pub fn destino_venda(&self, chave: &str) -> Option<PathBuf> {
         self.destinos
             .venda_detalhada

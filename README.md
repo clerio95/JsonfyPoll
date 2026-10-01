@@ -18,15 +18,18 @@ grava o JSON com nome fixo (sobrescrevendo).
   | Valor do Estoque              | `valor_estoque.json`      |
   | Produtividade por Funcionários | `produtividade.json`      |
   | Movimentação de Produtos      | `AAAA-MM.json` (ex.: `2018-03.json`) |
-  | Venda Detalhada               | `CODIGO_AAAA-MM-DD_AAAA-MM-DD.json` (ex.: `1096_2026-09-01_2026-09-30.json`) |
+  | Venda Detalhada               | `<grau>.json` (ex.: `5w30.json`, `15w40.json`) |
 
   Para os três primeiros o nome é fixo: cada conversão **sobrescreve** o JSON
   anterior daquele tipo. A **Movimentação de Produtos** usa o ano-mês do período
   do relatório como nome, então meses diferentes geram arquivos distintos
   (só o mesmo mês é sobrescrito).
 
-  A **Venda Detalhada** tem um arquivo por produto e período: exportar o 5W30
-  não apaga o 15W40, e reexportar o mesmo período substitui o anterior. Ela
+  A **Venda Detalhada** tem um arquivo por produto, com o nome do grau de
+  viscosidade que está no nome do produto no ERP (`...SP 5W30 GRANEL` →
+  `5w30.json`); um produto sem grau no nome usa o código (`1096.json`).
+  Exportar o 5W30 não apaga o 15W40, e a exportação seguinte do mesmo produto
+  substitui a anterior. Ela
   precisa ser exportada **filtrada por um produto** — sem `Produto código:` no
   cabeçalho o relatório é recusado, porque as linhas só trazem o nome truncado.
   A pasta `venda_detalhada` é opcional no config; sem ela, esse relatório é
