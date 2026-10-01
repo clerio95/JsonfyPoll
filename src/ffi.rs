@@ -17,6 +17,7 @@ pub enum Parser {
     ValorEstoque = 2,
     Produtividade = 3,
     Movimentacao = 4,
+    VendaDetalhada = 5,
 }
 
 impl Parser {
@@ -26,6 +27,7 @@ impl Parser {
             2 => Parser::ValorEstoque,
             3 => Parser::Produtividade,
             4 => Parser::Movimentacao,
+            5 => Parser::VendaDetalhada,
             _ => Parser::Auto,
         }
     }
@@ -37,6 +39,7 @@ impl Parser {
             Parser::ValorEstoque => "Valor do Estoque",
             Parser::Produtividade => "Produtividade por Funcionários",
             Parser::Movimentacao => "Movimentação de Produtos",
+            Parser::VendaDetalhada => "Venda Detalhada",
             Parser::Auto => "desconhecido",
         }
     }
@@ -46,6 +49,7 @@ extern "C" {
     fn jfx_detect(in_path: *const c_char) -> c_int;
     fn jfx_convert(in_path: *const c_char, out_path: *const c_char, parser: c_int) -> c_int;
     fn jfx_periodo_ym(in_path: *const c_char, buf: *mut c_char, buf_sz: usize) -> c_int;
+    fn jfx_venda_chave(in_path: *const c_char, buf: *mut c_char, buf_sz: usize) -> c_int;
     fn jfx_status_str(status: c_int) -> *const c_char;
 }
 
@@ -91,6 +95,24 @@ pub fn periodo_ym(in_path: &Path) -> Result<Option<String>, String> {
     let end = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
     let s = std::str::from_utf8(&buf[..end])
         .map_err(|_| "período retornou bytes inválidos".to_string())?;
+    Ok(Some(s.to_owned()))
+}
+
+/// Chave da Venda Detalhada, "CODIGO_AAAA-MM-DD_AAAA-MM-DD" (produto e
+/// período), usada para nomear o arquivo de saída. Retorna `None` quando o
+/// relatório não tem filtro de produto ou período.
+pub fn venda_chave(in_path: &Path) -> Result<Option<String>, String> {
+    let c_in = cstring(in_path)?;
+    let mut buf = [0_u8; 64]; // a função C exige >= 48
+                              // SAFETY: c_in é válido durante a chamada; a função C grava no máximo
+                              // buf.len() bytes, incluindo o terminador nulo.
+    let ok = unsafe { jfx_venda_chave(c_in.as_ptr(), buf.as_mut_ptr() as *mut c_char, buf.len()) };
+    if ok == 0 {
+        return Ok(None);
+    }
+    let end = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+    let s = std::str::from_utf8(&buf[..end])
+        .map_err(|_| "chave da venda retornou bytes inválidos".to_string())?;
     Ok(Some(s.to_owned()))
 }
 

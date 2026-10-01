@@ -21,7 +21,8 @@ typedef enum {
     JFX_POSICAO_ESTOQUE      = 1,
     JFX_VALOR_ESTOQUE        = 2,
     JFX_PRODUTIVIDADE        = 3,
-    JFX_MOVIMENTACAO_PRODUTOS = 4
+    JFX_MOVIMENTACAO_PRODUTOS = 4,
+    JFX_VENDA_DETALHADA      = 5
 } jfx_parser_t;
 
 /* Resultado de uma conversão. */
@@ -56,6 +57,17 @@ jfx_status_t jfx_convert(const char *in_path,
  * Retorna 1 em caso de sucesso, 0 se não encontrar/interpretar o período.
  */
 int jfx_periodo_ym(const char *in_path, char *buf, size_t buf_sz);
+
+/*
+ * Chave de arquivo da Venda Detalhada: "CODIGO_AAAA-MM-DD_AAAA-MM-DD" (produto
+ * e período, ex.: "1096_2026-09-01_2026-09-30"), gravada em `buf`. `buf_sz`
+ * deve ser >= 48. Serve para o chamador nomear o JSON sem que exportações de
+ * produtos ou períodos diferentes se sobrescrevam. Retorna 0 quando falta o
+ * código do produto (relatório exportado sem filtro de produto: as linhas só
+ * trazem o nome truncado, e não dá para saber de qual produto é cada venda) ou
+ * o período; 1 em caso de sucesso.
+ */
+int jfx_venda_chave(const char *in_path, char *buf, size_t buf_sz);
 
 /* Mensagem legível (pt-BR) para um jfx_status_t. */
 const char *jfx_status_str(jfx_status_t status);

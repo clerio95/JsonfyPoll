@@ -99,6 +99,10 @@ poll_interval_secs = 2
 posicao_estoque = 'C:\saidas\posicao'
 valor_estoque   = 'C:\saidas\valor'
 produtividade   = 'C:\saidas\produtividade'
+# Nome dinamico: AAAA-MM.json
+movimentacao    = 'C:\saidas\movimentacao'
+# Opcional. Nome por produto e periodo: CODIGO_AAAA-MM-DD_AAAA-MM-DD.json
+venda_detalhada = 'C:\saidas\venda_detalhada'
 "@ | Set-Content -Path $cfgExample -Encoding UTF8
 
 if (-not $NoPath) {

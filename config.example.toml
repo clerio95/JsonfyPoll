@@ -12,8 +12,12 @@ poll_interval_secs = 2
 # Exceção: movimentacao usa nome dinâmico com o ano-mês do período do
 # relatório, sem sobrescrever meses diferentes:
 #   movimentacao     -> AAAA-MM.json (ex.: 2018-03.json)
+# e venda_detalhada (opcional) usa um nome por produto e período, para que
+# exportar um produto não apague o outro:
+#   venda_detalhada  -> CODIGO_AAAA-MM-DD_AAAA-MM-DD.json (ex.: 1096_2026-09-01_2026-09-30.json)
 [destinos]
 posicao_estoque = "/home/clerio95/saidas/posicao"
 valor_estoque   = "/home/clerio95/saidas/valor"
 produtividade   = "/home/clerio95/saidas/produtividade"
 movimentacao    = "/home/clerio95/saidas/movimentacao"
+venda_detalhada = "/home/clerio95/saidas/venda_detalhada"

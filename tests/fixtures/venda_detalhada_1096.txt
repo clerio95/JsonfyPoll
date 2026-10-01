@@ -1,0 +1,29 @@
+ZAM                                                                                                                                    01/10/2026 14:51
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+                                                                    VENDA DETALHADA
+                                                               Grupo Empresa: 1 - EMPRESA
+                                                                      Empresas:
+                                                                  Produto código: 1096
+                                                 Produto nome: PETRONAS SELENIA PERFORM SP 5W30 GRANEL
+                                                            Período: 01/09/2026 a 30/09/2026
+                                                                    Modo: ANALÍTICO
+                                                                  Agrupar: NÃO AGRUPAR
+                                                           Tipo produto: MERCADORIA, SERVIÇO
+                                                        Considerar: INTERVALO, VENDAS DEVOLVIDAS
+                                                                    Tipo data: CAIXA
+
++------------+-------+------------+------+----------------------------+-----------+----------------+------------+----------------+--------------------+
+|    Data    |  Hora | Hora abst. | Bico |          Produto           | Documento |   Quantidade   | Preço unit.|     Valor      | Forma de pagamento |
++------------+-------+------------+------+----------------------------+-----------+----------------+------------+----------------+--------------------+
+| 02/09/2026 | 16:32 |            |      | PETRONAS SELENIA PERFORM S |   100001  |          4,200 |     58,500 |         245,70 | ELO CREDITO +      |
+| 04/09/2026 | 11:07 |            |      | PETRONAS SELENIA PERFORM S |   100002  |          1,000 |     57,990 |          57,99 | MASTERCARD CREDITO |
+| 04/09/2026 | 11:44 |            |      | PETRONAS SELENIA PERFORM S |   100003  |          3,300 |     59,067 |         194,92 | PIX                |
+| 04/09/2026 | 14:10 |            |      | PETRONAS SELENIA PERFORM S |   100004  |          3,600 |     65,000 |         234,00 | MASTERCARD DEBITO  |
+| 04/09/2026 | 17:26 |            |      | PETRONAS SELENIA PERFORM S |   100005  |          4,000 |     57,160 |         228,64 | VISA PARCELADO +   |
+| 06/09/2026 | 14:04 |            |      | PETRONAS SELENIA PERFORM S |   100006  |          2,700 |     58,500 |         157,95 | VISA CREDITO +     |
+| 12/09/2026 | 11:33 |            |      | PETRONAS SELENIA PERFORM S |   100007  |          1,000 |     58,620 |          58,62 | MASTERCARD PARCELA |
+| 12/09/2026 | 11:37 |            |      | PETRONAS SELENIA PERFORM S |   100008  |          3,400 |     60,388 |         205,32 | VISA PARCELADO     |
++------------+-------+------------+------+----------------------------+-----------+----------------+------------+----------------+--------------------+
+| Total                                                                           |         23,200 |            |       1.383,14 |                    |
++---------------------------------------------------------------------------------+----------------+------------+----------------+--------------------+

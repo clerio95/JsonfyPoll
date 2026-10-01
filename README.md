@@ -18,11 +18,19 @@ grava o JSON com nome fixo (sobrescrevendo).
   | Valor do Estoque              | `valor_estoque.json`      |
   | Produtividade por Funcionários | `produtividade.json`      |
   | Movimentação de Produtos      | `AAAA-MM.json` (ex.: `2018-03.json`) |
+  | Venda Detalhada               | `CODIGO_AAAA-MM-DD_AAAA-MM-DD.json` (ex.: `1096_2026-09-01_2026-09-30.json`) |
 
   Para os três primeiros o nome é fixo: cada conversão **sobrescreve** o JSON
   anterior daquele tipo. A **Movimentação de Produtos** usa o ano-mês do período
   do relatório como nome, então meses diferentes geram arquivos distintos
   (só o mesmo mês é sobrescrito).
+
+  A **Venda Detalhada** tem um arquivo por produto e período: exportar o 5W30
+  não apaga o 15W40, e reexportar o mesmo período substitui o anterior. Ela
+  precisa ser exportada **filtrada por um produto** — sem `Produto código:` no
+  cabeçalho o relatório é recusado, porque as linhas só trazem o nome truncado.
+  A pasta `venda_detalhada` é opcional no config; sem ela, esse relatório é
+  recusado com uma mensagem e os demais seguem normais.
 
 ## Configuração
 
@@ -37,6 +45,7 @@ posicao_estoque = "/home/clerio95/saidas/posicao"
 valor_estoque   = "/home/clerio95/saidas/valor"
 produtividade   = "/home/clerio95/saidas/produtividade"
 movimentacao    = "/home/clerio95/saidas/movimentacao"
+venda_detalhada = "/home/clerio95/saidas/venda_detalhada"   # opcional
 ```
 
 As pastas de destino são criadas automaticamente se não existirem.

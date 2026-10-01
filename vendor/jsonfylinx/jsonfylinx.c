@@ -742,6 +742,272 @@ static jfx_status_t parse_movimentacao_produtos(const char *in_path, const char 
     return JFX_OK;
 }
 
+/* ---- Venda Detalhada ------------------------------------------------------
+ * One product per report ("Produto código: N" in the header). The sale rows
+ * carry only a truncated product name, so a report exported without the
+ * product filter can't say which product each sale was: jfx_venda_chave()
+ * rejects it, and the JSON carries codigo 0. */
+
+typedef struct {
+    char gerado_em[17];           /* "AAAA-MM-DDTHH:MM", from the top-right corner */
+    char inicio[11];              /* "AAAA-MM-DD" */
+    char fim[11];
+    long codigo;                  /* 0 = no product filter */
+    char nome[MAX_PRODUTO];
+    char tipo_data[32];           /* "CAIXA", ... — which date the rows are filed under */
+} VendaHeader;
+
+typedef struct {
+    char   data[11];              /* "AAAA-MM-DD" */
+    char   hora[6];
+    char   documento[32];
+    double quantidade;            /* negative for a returned sale */
+    double preco_unitario;
+    double valor;
+    char   forma_pagamento[MAX_PRODUTO];
+} VendaLinha;
+
+/* Copies at most dst_sz-1 bytes of src (no truncation warning games). */
+static void copy_field(char *dst, size_t dst_sz, const char *src) {
+    size_t n = strlen(src);
+    if (n >= dst_sz) n = dst_sz - 1;
+    memcpy(dst, src, n);
+    dst[n] = '\0';
+}
+
+/* "DD/MM/AAAA" at p -> "AAAA-MM-DD" in out (11 bytes). Returns 1 on a match. */
+static int br_date_iso(const char *p, char *out) {
+    if (strlen(p) < 10) return 0;
+    for (int i = 0; i < 10; i++) {
+        if (i == 2 || i == 5) {
+            if (p[i] != '/') return 0;
+        } else if (!isdigit((unsigned char)p[i])) {
+            return 0;
+        }
+    }
+    memcpy(out, p + 6, 4);
+    out[4] = '-';
+    memcpy(out + 5, p + 3, 2);
+    out[7] = '-';
+    memcpy(out + 8, p, 2);
+    out[10] = '\0';
+    return 1;
+}
+
+/* Value after the colon of the "label...:" field on this line, trimmed. */
+static int header_value(const char *line, const char *label, char *out, size_t out_sz) {
+    const char *p = strstr(line, label);
+    if (!p) return 0;
+    const char *colon = strchr(p, ':');
+    if (!colon) return 0;
+    copy_field(out, out_sz, colon + 1);
+    trim(out);
+    return 1;
+}
+
+/* Fills whatever this header line carries. Each field is set once, so a header
+   repeated on a later page can't overwrite the first. Labels stop before the
+   accented letters ("Produto c" for "código", "odo: " for "Período"). */
+static void parse_venda_header_line(const char *line, VendaHeader *h) {
+    char v[MAX_PRODUTO];
+
+    /* Emission stamp: the first "DD/MM/AAAA HH:MM" (Período has no time). */
+    if (!h->gerado_em[0]) {
+        for (const char *p = line; *p; p++) {
+            char d[11];
+            if (br_date_iso(p, d) && p[10] == ' ' &&
+                isdigit((unsigned char)p[11]) && isdigit((unsigned char)p[12]) &&
+                p[13] == ':' &&
+                isdigit((unsigned char)p[14]) && isdigit((unsigned char)p[15])) {
+                memcpy(h->gerado_em, d, 10);
+                h->gerado_em[10] = 'T';
+                memcpy(h->gerado_em + 11, p + 11, 5);
+                h->gerado_em[16] = '\0';
+                return;
+            }
+        }
+    }
+
+    if (!h->inicio[0]) {
+        const char *pp = strstr(line, "odo: ");
+        if (pp) {
+            pp += 5;
+            if (br_date_iso(pp, h->inicio)) {
+                const char *a = strstr(pp + 10, " a ");
+                if (!a || !br_date_iso(a + 3, h->fim)) h->fim[0] = '\0';
+            }
+            return;
+        }
+    }
+
+    if (!h->codigo && header_value(line, "Produto c", v, sizeof(v))) {
+        if (is_digits_only(v)) h->codigo = atol(v);
+        return;
+    }
+    if (!h->nome[0] && header_value(line, "Produto nome", v, sizeof(v))) {
+        copy_field(h->nome, sizeof(h->nome), v);
+        return;
+    }
+    if (!h->tipo_data[0] && header_value(line, "Tipo data", v, sizeof(v))) {
+        copy_field(h->tipo_data, sizeof(h->tipo_data), v);
+        return;
+    }
+}
+
+/* "| DD/MM/AAAA | HH:MM | abst | bico | produto | doc | qtd | preço | valor | forma |" */
+static int parse_venda_row(const char *line, VendaLinha *v) {
+    if (line[0] != '|') return 0;
+    char f[12][MAX_PRODUTO];
+    if (split_pipes(line, f, 12) < 10) return 0;
+    if (strlen(f[0]) != 10 || !br_date_iso(f[0], v->data)) return 0;
+
+    copy_field(v->hora, sizeof(v->hora), f[1]);
+    copy_field(v->documento, sizeof(v->documento), f[5]);
+    v->quantidade     = parse_br_number(f[6]);
+    v->preco_unitario = parse_br_number(f[7]);
+    v->valor          = parse_br_number(f[8]);
+    copy_field(v->forma_pagamento, sizeof(v->forma_pagamento), f[9]);
+    return 1;
+}
+
+/* "| Total ... | qtd | | valor | |" closing the table. */
+static int parse_venda_total(const char *line, double *qtd, double *valor) {
+    if (line[0] != '|') return 0;
+    char f[6][MAX_PRODUTO];
+    if (split_pipes(line, f, 6) < 4) return 0;
+    if (strncmp(f[0], "Total", 5) != 0) return 0;
+    *qtd   = parse_br_number(f[1]);
+    *valor = parse_br_number(f[3]);
+    return 1;
+}
+
+static int read_venda_header(const char *in_path, VendaHeader *h) {
+    FILE *in = fopen(in_path, "r");
+    if (!in) return 0;
+
+    memset(h, 0, sizeof(*h));
+    char line[MAX_LINE];
+    int  scanned = 0;
+
+    while (fgets(line, sizeof(line), in) && scanned < DETECT_MAX_LINES) {
+        if (line[0] == '+' || line[0] == '|') break;   /* past the header */
+        scanned++;
+        size_t len = strlen(line);
+        while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
+            line[--len] = '\0';
+        parse_venda_header_line(line, h);
+    }
+
+    fclose(in);
+    return 1;
+}
+
+static void write_venda_header(FILE *out, const VendaHeader *h) {
+    fputs("{\n", out);
+    fprintf(out, "  \"gerado_em\": \"%s\",\n", h->gerado_em);
+    fputs("  \"periodo\": {\n", out);
+    fprintf(out, "    \"inicio\": \"%s\",\n", h->inicio);
+    fprintf(out, "    \"fim\": \"%s\"\n", h->fim);
+    fputs("  },\n", out);
+    fputs("  \"produto\": {\n", out);
+    fprintf(out, "    \"codigo\": %ld,\n", h->codigo);
+    fputs("    \"nome\": \"", out);
+    json_escape(out, h->nome);
+    fputs("\"\n", out);
+    fputs("  },\n", out);
+    fputs("  \"tipo_data\": \"", out);
+    json_escape(out, h->tipo_data);
+    fputs("\",\n", out);
+    fputs("  \"vendas\": [\n", out);
+}
+
+static jfx_status_t parse_venda_detalhada(const char *in_path, const char *out_path) {
+    FILE *in = fopen(in_path, "r");
+    if (!in) return JFX_ERR_OPEN_INPUT;
+    FILE *out = fopen(out_path, "w");
+    if (!out) {
+        fclose(in);
+        return JFX_ERR_CREATE_OUTPUT;
+    }
+
+    VendaHeader h;
+    memset(&h, 0, sizeof(h));
+    VendaLinha  v;
+    int    header_written = 0, first = 1, have_total = 0;
+    double total_qtd = 0.0, total_valor = 0.0;
+    char   line[MAX_LINE];
+
+    while (fgets(line, sizeof(line), in)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
+            line[--len] = '\0';
+
+        if (line[0] != '+' && line[0] != '|') {
+            parse_venda_header_line(line, &h);
+            continue;
+        }
+
+        /* The header block always precedes the table. */
+        if (!header_written) {
+            write_venda_header(out, &h);
+            header_written = 1;
+        }
+
+        if (parse_venda_row(line, &v)) {
+            if (!first) fputs(",\n", out);
+            first = 0;
+            fputs("    {\n", out);
+            fprintf(out, "      \"data\": \"%s\",\n", v.data);
+            fputs("      \"hora\": \"", out);
+            json_escape(out, v.hora);
+            fputs("\",\n", out);
+            fputs("      \"documento\": \"", out);
+            json_escape(out, v.documento);
+            fputs("\",\n", out);
+            fprintf(out, "      \"quantidade\": %.3f,\n", v.quantidade);
+            fprintf(out, "      \"preco_unitario\": %.3f,\n", v.preco_unitario);
+            fprintf(out, "      \"valor\": %.2f,\n", v.valor);
+            fputs("      \"forma_pagamento\": \"", out);
+            json_escape(out, v.forma_pagamento);
+            fputs("\"\n", out);
+            fputs("    }", out);
+            continue;
+        }
+
+        if (parse_venda_total(line, &total_qtd, &total_valor))
+            have_total = 1;
+    }
+
+    if (!header_written) write_venda_header(out, &h);   /* no table at all */
+    if (!first) fputc('\n', out);
+    fputs("  ],\n", out);
+    /* The ERP's own total, so a reader can check the rows add up to it — a row
+       layout change shows up as a mismatch instead of silently lost sales. */
+    if (have_total) {
+        fprintf(out, "  \"total_quantidade\": %.3f,\n", total_qtd);
+        fprintf(out, "  \"total_valor\": %.2f\n", total_valor);
+    } else {
+        fputs("  \"total_quantidade\": null,\n", out);
+        fputs("  \"total_valor\": null\n", out);
+    }
+    fputs("}\n", out);
+
+    fclose(in);
+    fclose(out);
+    return JFX_OK;
+}
+
+int jfx_venda_chave(const char *in_path, char *buf, size_t buf_sz) {
+    if (!buf || buf_sz < 48) return 0;
+
+    VendaHeader h;
+    if (!read_venda_header(in_path, &h)) return 0;
+    if (h.codigo <= 0 || !h.inicio[0] || !h.fim[0]) return 0;
+
+    snprintf(buf, buf_sz, "%ld_%s_%s", h.codigo, h.inicio, h.fim);
+    return 1;
+}
+
 jfx_parser_t jfx_detect(const char *in_path) {
     FILE *in = fopen(in_path, "r");
     if (!in) return JFX_AUTO;
@@ -757,7 +1023,10 @@ jfx_parser_t jfx_detect(const char *in_path) {
 
         /* Accent-free anchors, matched case-insensitively. Order matters:
          * both stock reports contain "ESTOQUE", so "VALOR DO ESTOQUE" first.
-         * "MOVIMENTA" stops before the "Ç" of "MOVIMENTAÇÃO DE PRODUTOS". */
+         * "MOVIMENTA" stops before the "Ç" of "MOVIMENTAÇÃO DE PRODUTOS".
+         * "VENDA DETALHADA" goes first: its header names a product, and a
+         * product name may contain any of the other anchors. */
+        if (ci_contains(line, "VENDA DETALHADA")) { result = JFX_VENDA_DETALHADA; break; }
         if (ci_contains(line, "MOVIMENTA")) { result = JFX_MOVIMENTACAO_PRODUTOS; break; }
         if (ci_contains(line, "PRODUTIVIDADE")) { result = JFX_PRODUTIVIDADE; break; }
         if (ci_contains(line, "VALOR DO ESTOQUE")) { result = JFX_VALOR_ESTOQUE; break; }
@@ -816,6 +1085,7 @@ jfx_status_t jfx_convert(const char *in_path, const char *out_path, jfx_parser_t
         case JFX_VALOR_ESTOQUE:         return parse_valor_estoque_reajustes(in_path, out_path);
         case JFX_PRODUTIVIDADE:         return parse_produtividade_funcionarios(in_path, out_path);
         case JFX_MOVIMENTACAO_PRODUTOS: return parse_movimentacao_produtos(in_path, out_path);
+        case JFX_VENDA_DETALHADA:       return parse_venda_detalhada(in_path, out_path);
         default:                        return JFX_ERR_INVALID_PARSER;
     }
 }

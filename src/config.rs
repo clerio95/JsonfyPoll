@@ -12,6 +12,11 @@ pub struct Destinos {
     pub valor_estoque: PathBuf,
     pub produtividade: PathBuf,
     pub movimentacao: PathBuf,
+    /// Opcional: um config anterior à Venda Detalhada continua válido; sem a
+    /// pasta, esse relatório é recusado com uma mensagem em vez de derrubar o
+    /// pooler na leitura do config.
+    #[serde(default)]
+    pub venda_detalhada: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,14 +43,15 @@ impl Config {
     }
 
     /// Pasta de destino e nome de arquivo fixo para os tipos de nome fixo.
-    /// `Parser::Movimentacao` usa nome dinâmico (ver `destino_movimentacao`);
-    /// `Parser::Auto` não tem destino. Ambos retornam `None` aqui.
+    /// `Parser::Movimentacao` e `Parser::VendaDetalhada` usam nome dinâmico (ver
+    /// `destino_movimentacao`/`destino_venda`); `Parser::Auto` não tem destino.
+    /// Todos retornam `None` aqui.
     pub fn destino(&self, parser: Parser) -> Option<PathBuf> {
         let (dir, nome) = match parser {
             Parser::PosicaoEstoque => (&self.destinos.posicao_estoque, "posicao_estoque.json"),
             Parser::ValorEstoque => (&self.destinos.valor_estoque, "valor_estoque.json"),
             Parser::Produtividade => (&self.destinos.produtividade, "produtividade.json"),
-            Parser::Movimentacao | Parser::Auto => return None,
+            Parser::Movimentacao | Parser::VendaDetalhada | Parser::Auto => return None,
         };
         Some(dir.join(nome))
     }
@@ -54,5 +60,15 @@ impl Config {
     /// (ex.: 2018-03.json) dentro da pasta configurada.
     pub fn destino_movimentacao(&self, ym: &str) -> PathBuf {
         self.destinos.movimentacao.join(format!("{ym}.json"))
+    }
+
+    /// Destino da Venda Detalhada: "CODIGO_AAAA-MM-DD_AAAA-MM-DD.json" (produto e
+    /// período). Um arquivo por produto e período: exportar o 5W30 não apaga o
+    /// 15W40, e reexportar o mesmo período o substitui. `None` sem a pasta.
+    pub fn destino_venda(&self, chave: &str) -> Option<PathBuf> {
+        self.destinos
+            .venda_detalhada
+            .as_ref()
+            .map(|dir| dir.join(format!("{chave}.json")))
     }
 }
